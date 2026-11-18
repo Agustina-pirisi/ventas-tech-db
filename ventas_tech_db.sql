@@ -1,128 +1,97 @@
--- =====================================================================
--- PROYECTO FINAL: BACK-END / CHECKPOINT - Ventas_Tech_DB
--- Base de datos normalizada para cadena de tiendas de tecnología (TechStore)
--- =====================================================================
-
--- Crear y usar la base de datos
-CREATE DATABASE Ventas_Tech_DB;
-GO
-
 USE Ventas_Tech_DB;
 GO
 
+-- === SECCIÓN 1: DROP ===
+-- Eliminación de tablas en orden inverso para mantener la repetibilidad
 
--- =====================================================================
--- SECCIÓN 1: DROP TABLES (Orden inverso a las dependencias por las FK)
--- =====================================================================
-
-IF OBJECT_ID('ventas', 'U') IS NOT NULL DROP TABLE ventas;
-IF OBJECT_ID('productos', 'U') IS NOT NULL DROP TABLE productos;
-IF OBJECT_ID('clientes', 'U') IS NOT NULL DROP TABLE clientes;
-IF OBJECT_ID('categorias', 'U') IS NOT NULL DROP TABLE categorias;
+DROP TABLE IF EXISTS ventas;      -- Depende de clientes y productos
+DROP TABLE IF EXISTS productos;   -- Depende de categorías
+DROP TABLE IF EXISTS clientes;    -- Es independiente
+DROP TABLE IF EXISTS categorias;  -- Es independiente
 GO
 
+-- === SECCIÓN 2: CREATE ===
+-- Creación del modelo relacional en 3NF con tipos DECIMAL(10,2)
 
--- =====================================================================
--- SECCIÓN 2: CREATE TABLES (Estructura, Tipos de datos, PK y FK)
--- =====================================================================
-
--- 1. Tabla de Dimensión: Categorías
 CREATE TABLE categorias (
-    id_categoria INT IDENTITY(1,1) PRIMARY KEY,
-    nombre_categoria NVARCHAR(60) NOT NULL
+    id_categoria INT PRIMARY KEY,
+    nombre_categoria VARCHAR(100) NOT NULL,
+    descripcion VARCHAR(255) NULL
 );
+GO
 
--- 2. Tabla de Dimensión: Clientes
 CREATE TABLE clientes (
-    id_cliente INT IDENTITY(1,1) PRIMARY KEY,
-    nombre NVARCHAR(100) NOT NULL,
-    email NVARCHAR(120) NOT NULL,
-    segmento NVARCHAR(30) NOT NULL,
+    id_cliente INT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    email VARCHAR(150) NOT NULL,
+    ciudad VARCHAR(100) NOT NULL,
     fecha_registro DATE NOT NULL
 );
+GO
 
--- 3. Tabla de Dimensión: Productos (Depende de Categorías)
 CREATE TABLE productos (
-    id_producto INT IDENTITY(1,1) PRIMARY KEY,
-    nombre_producto NVARCHAR(100) NOT NULL,
+    id_producto INT PRIMARY KEY,
+    nombre_producto VARCHAR(100) NOT NULL,
     id_categoria INT NOT NULL,
-    subcategoria NVARCHAR(60) NOT NULL,
-    precio DECIMAL(12,2) NOT NULL,
-    costo DECIMAL(12,2) NOT NULL,
-    CONSTRAINT FK_productos_categorias FOREIGN KEY (id_categoria) 
-        REFERENCES categorias(id_categoria)
+    precio DECIMAL(10,2) NOT NULL,  -- ¡Ojo acá! Usamos DECIMAL y nunca FLOAT para evitar errores de centavos
+    stock INT NOT NULL,
+    activo INT NOT NULL,
+    FOREIGN KEY (id_categoria) REFERENCES categorias(id_categoria)
 );
+GO
 
--- 4. Tabla de Hechos: Ventas (Depende de Productos y Clientes)
 CREATE TABLE ventas (
-    id_venta INT IDENTITY(1,1) PRIMARY KEY,
-    fecha_venta DATE NOT NULL,
+    id_venta INT PRIMARY KEY,
     id_cliente INT NOT NULL,
     id_producto INT NOT NULL,
     cantidad INT NOT NULL,
-    total_venta DECIMAL(12,2) NOT NULL,
-    canal NVARCHAR(30) NOT NULL,
-    CONSTRAINT FK_ventas_clientes FOREIGN KEY (id_cliente) 
-        REFERENCES clientes(id_cliente),
-    CONSTRAINT FK_ventas_productos FOREIGN KEY (id_producto) 
-        REFERENCES productos(id_producto)
+    precio_unitario DECIMAL(10,2) NOT NULL,
+    fecha_venta DATE NOT NULL,
+    FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente),
+    FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
 );
 GO
 
+-- === SECCIÓN 3: INSERT ===
+-- Inserción de datos respetando dependencias relacionales
 
--- =====================================================================
--- SECCIÓN 3: INSERT INTO (Carga de datos de prueba iniciales)
--- =====================================================================
+INSERT INTO categorias (id_categoria, nombre_categoria, descripcion) VALUES
+  (1, 'Computación',    'Laptops, PCs y monitores'),
+  (2, 'Accesorios',     'Periféricos y complementos'),
+  (3, 'Audio',          'Auriculares y parlantes'),
+  (4, 'Almacenamiento', 'Discos y memorias');
 
--- Insertar Categorías
-INSERT INTO categorias (nombre_categoria) VALUES 
-('Computación'),
-('Telefonía'),
-('Audio y Video');
+  INSERT INTO clientes (id_cliente, nombre, email, ciudad, fecha_registro) VALUES
+  (1, 'María López',  'maria@mail.com',  'Buenos Aires', '2024-01-05'),
+  (2, 'Carlos Ruiz',  'carlos@mail.com', 'Córdoba',      '2024-01-10'),
+  (3, 'Ana Gómez',    'ana@mail.com',    'Rosario',      '2024-02-01'),
+  (4, 'Pedro Sanz',   'pedro@mail.com',  'Mendoza',      '2024-02-15'),
+  (5, 'Laura Torres', 'laura@mail.com',  'Tucumán',      '2024-03-01');
 
--- Insertar Clientes
-INSERT INTO clientes (nombre, email, segmento, fecha_registro) VALUES 
-('Ana Pérez', 'ana.perez@email.com', 'Minorista', '2025-01-15'),
-('Carlos Gómez', 'carlos.gomez@email.com', 'Corporativo', '2025-02-10'),
-('Lucía Fernández', 'lucia.f@email.com', 'Minorista', '2025-03-01');
+  INSERT INTO productos (id_producto, nombre_producto, id_categoria, precio, stock, activo) VALUES
+  (1, 'Laptop Pro 15',      1, 1200.00, 15, 1),
+  (2, 'Mouse Inalámbrico',  2,    28.00, 80, 1),
+  (3, 'Monitor 4K 27',      1,   450.00, 12, 1),
+  (4, 'Auriculares BT Pro', 3,   120.00, 35, 1),
+  (5, 'SSD Externo 1TB',    4,   130.00, 18, 1),
+  (6, 'Teclado Mecánico',   2,    95.00, 40, 1);
 
--- Insertar Productos
-INSERT INTO productos (nombre_producto, id_categoria, subcategoria, precio, costo) VALUES 
-('Notebook Gamer X1', 1, 'Laptops', 1200000.00, 900000.00),
-('Smartphone Z5', 2, 'Celulares', 800000.00, 600000.00),
-('Auriculares Inalámbricos TWS', 3, 'Audio', 75000.00, 45000.00);
+  INSERT INTO ventas (id_venta, id_cliente, id_producto, cantidad, precio_unitario, fecha_venta) VALUES
+  ( 1, 1, 1, 2, 1200.00, '2024-03-05'),
+  ( 2, 2, 2, 5,    28.00, '2024-03-06'),
+  ( 3, 3, 3, 1,   450.00, '2024-03-07'),
+  ( 4, 1, 4, 2,   120.00, '2024-03-08'),
+  ( 5, 4, 5, 3,   130.00, '2024-03-10'),
+  ( 6, 2, 6, 4,    95.00, '2024-03-11'),
+  ( 7, 5, 1, 1, 1200.00, '2024-03-12'),
+  ( 8, 3, 2, 8,    28.00, '2024-03-13'),
+  ( 9, 4, 4, 1,   120.00, '2024-03-14'),
+  (10, 5, 3, 2,   450.00, '2024-03-15');
 
--- Insertar Ventas
-INSERT INTO ventas (fecha_venta, id_cliente, id_producto, cantidad, total_venta, canal) VALUES 
-('2026-03-10', 1, 1, 1, 1200000.00, 'Online'),
-('2026-03-11', 2, 2, 2, 1600000.00, 'Tienda física'),
-('2026-03-12', 3, 3, 3, 225000.00, 'Online');
-GO
+  -- === SECCIÓN 4: VALIDACIÓN ===
+-- Consultas de control para verificar las filas esperadas
 
-
--- =====================================================================
--- SECCIÓN 4: VALIDACIÓN (Consultas SELECT de comprobación)
--- =====================================================================
-
-SELECT '=== CATEGORIAS ===' AS Tabla;
-SELECT * FROM categorias;
-
-SELECT '=== CLIENTES ===' AS Tabla;
-SELECT * FROM clientes;
-
-SELECT '=== PRODUCTOS ===' AS Tabla;
-SELECT * FROM productos;
-
-SELECT '=== VENTAS (CON RELACIONES) ===' AS Tabla;
-SELECT 
-    v.id_venta,
-    v.fecha_venta,
-    c.nombre AS cliente,
-    p.nombre_producto,
-    v.cantidad,
-    v.total_venta,
-    v.canal
-FROM ventas v
-JOIN clientes c ON v.id_cliente = c.id_cliente
-JOIN productos p ON v.id_producto = p.id_producto;
-GO
+SELECT * FROM categorias;   -- esperado: 4 filas
+SELECT * FROM clientes;     -- esperado: 5 filas
+SELECT * FROM productos;    -- esperado: 6 filas
+SELECT * FROM ventas;       -- esperado: 10 filas
